@@ -1,0 +1,18 @@
+# Core dependencies — pin versions as the project matures
+tensorflow>=2.16
+tensorflow-model-optimization
+numpy
+pandas
+matplotlib
+scikit-learn
+pillow
+flask
+fastapi
+uvicorn
+requests
+psutil
+paho-mqtt
+sqlite-utils
+joblib
+tqdm
+seaborn
