@@ -29,13 +29,37 @@ class SensorSimulator:
             vibration = round(random.uniform(2.5, 5.0), 2)
             door = random.random() < 0.60
 
-        else:
+        elif self.mode == "random":
             scenario = random.choice(
                 ["normal", "warning", "critical"]
             )
 
-            self.mode = scenario
-            return self.generate_reading()
+            if scenario == "normal":
+                temperature = round(random.uniform(2.0, 8.0), 2)
+                vibration = round(random.uniform(0.4, 1.2), 2)
+                door = random.random() < 0.05
+
+            elif scenario == "warning":
+                temperature = round(random.uniform(8.0, 12.0), 2)
+                vibration = round(random.uniform(1.2, 2.5), 2)
+                door = random.random() < 0.20
+
+            else:
+                temperature = round(random.uniform(12.0, 20.0), 2)
+                vibration = round(random.uniform(2.5, 5.0), 2)
+                door = random.random() < 0.60
+
+            return {
+                "timestamp": datetime.now().isoformat(),
+                "truck_id": self.truck_id,
+                "temperature": temperature,
+                "vibration": vibration,
+                "door_open": door,
+                "status": scenario,
+            }
+
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
 
         return {
             "timestamp": datetime.now().isoformat(),

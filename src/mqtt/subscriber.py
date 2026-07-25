@@ -2,10 +2,13 @@ import json
 
 import paho.mqtt.client as mqtt
 
+from src.preprocessing.pipeline import PreprocessingPipeline
+
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "logiedge/truck001/sensors"
 
+pipeline = PreprocessingPipeline()
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print("Connected")
@@ -18,22 +21,13 @@ def on_message(client, userdata, msg):
     data = json.loads(msg.payload.decode())
 
     print("=" * 60)
-    print(f"Truck       : {data['truck_id']}")
-    print(f"Time        : {data['timestamp']}")
-    print(f"Temperature : {data['temperature']} °C")
-    print(f"Vibration   : {data['vibration']}")
-    print(f"Door Open   : {data['door_open']}")
-    print(f"Status      : {data['status']}")
-    status = data["status"]
+    print(data)
 
-    if status == "critical":
-        print("🚨 CRITICAL ALERT - Immediate action required!")
+    # features = pipeline.process(data)
+    pipeline.process(data)
 
-    elif status == "warning":
-        print("⚠️ WARNING - Check refrigeration system.")
-
-    else:
-        print("✅ System operating normally.")
+    # if features is not None:
+    #     prediction = edge_model.predict(features)
 
 
 client = mqtt.Client(
