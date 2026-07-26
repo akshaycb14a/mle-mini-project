@@ -1,1 +1,27 @@
-# Docker Compose configuration — to be added later
+version: "3.8"
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+
+  publisher:
+    build: .
+    command: python src/mqtt/publisher.py
+    depends_on:
+      - mosquitto
+    environment:
+      MQTT_BROKER: mosquitto
+
+  logiedge:
+    build: .
+    command: python src/mqtt/subscriber.py
+    depends_on:
+      - mosquitto
+    environment:
+      MQTT_BROKER: mosquitto
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data

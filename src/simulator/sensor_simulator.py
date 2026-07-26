@@ -11,31 +11,52 @@ class SensorSimulator:
     def __init__(self, truck_id="TRUCK_001", mode="normal"):
         self.truck_id = truck_id
         self.mode = mode.lower()
+        self.mode_counter = 0
+        self.mode_duration = 60
+
+        if self.mode == "random":
+            self.current_mode = random.choice(
+                ["normal", "warning", "critical"]
+            )
+        else:
+            self.current_mode = self.mode
+
+    def update_mode(self):
+        if self.mode != "random":
+            self.current_mode = self.mode
+            return
+
+        if self.mode_counter >= self.mode_duration:
+            self.current_mode = random.choice([
+                "normal",
+                "warning",
+                "critical",
+            ])
+            self.mode_counter = 0
+
+        self.mode_counter += 1
 
     def generate_reading(self):
+        self.update_mode()
+        mode = self.current_mode
 
-        if self.mode == "normal":
+        if mode == "normal":
             temperature = round(random.uniform(2.0, 8.0), 2)
             vibration = round(random.uniform(0.4, 1.2), 2)
             door = random.random() < 0.05
 
-        elif self.mode == "warning":
+        elif mode == "warning":
             temperature = round(random.uniform(8.0, 12.0), 2)
             vibration = round(random.uniform(1.2, 2.5), 2)
             door = random.random() < 0.20
 
-        elif self.mode == "critical":
+        elif mode == "critical":
             temperature = round(random.uniform(12.0, 20.0), 2)
             vibration = round(random.uniform(2.5, 5.0), 2)
             door = random.random() < 0.60
 
         else:
-            scenario = random.choice(
-                ["normal", "warning", "critical"]
-            )
-
-            self.mode = scenario
-            return self.generate_reading()
+            raise ValueError(f"Unknown mode: {mode}")
 
         return {
             "timestamp": datetime.now().isoformat(),
@@ -43,7 +64,7 @@ class SensorSimulator:
             "temperature": temperature,
             "vibration": vibration,
             "door_open": door,
-            "status": self.mode,
+            "status": mode,
         }
 
 
