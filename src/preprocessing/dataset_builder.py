@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     for i in range(40):
 
-        sw.add(i, i)
+        sw.add(i, i, False, "normal")
 
         print(
             i,

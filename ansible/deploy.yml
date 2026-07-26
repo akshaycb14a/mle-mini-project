@@ -1,0 +1,23 @@
+---
+- hosts: edge
+  become: false
+
+  vars:
+    project_dir: "{{ ansible_env.HOME }}/logiedge"
+
+  tasks:
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+
+    - name: Copy project
+      copy:
+        src: ../
+        dest: "{{ project_dir }}"
+
+    - name: Build Docker containers
+      command: docker compose up --build -d
+      args:
+        chdir: "{{ project_dir }}"

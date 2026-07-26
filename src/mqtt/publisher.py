@@ -1,3 +1,4 @@
+import os
 import json
 import time
 
@@ -6,7 +7,8 @@ import paho.mqtt.client as mqtt
 from src.simulator.sensor_simulator import SensorSimulator
 
 
-BROKER = "localhost"
+
+BROKER = os.getenv("MQTT_BROKER", "localhost")
 PORT = 1883
 TOPIC = "logiedge/truck001/sensors"
 
@@ -15,6 +17,7 @@ client = mqtt.Client(
 )
 
 client.connect(BROKER, PORT)
+client.loop_start()
 
 simulator = SensorSimulator(
     truck_id="TRUCK_001",
@@ -27,10 +30,8 @@ while True:
 
     reading = simulator.generate_reading()
 
-    client.publish(
-        TOPIC,
-        json.dumps(reading)
-    )
+    info = client.publish(TOPIC, json.dumps(reading))
+    info.wait_for_publish()
 
     print(reading)
 

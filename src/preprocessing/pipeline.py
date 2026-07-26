@@ -1,3 +1,5 @@
+from collections import Counter
+
 from src.preprocessing.moving_average import MovingAverageFilter
 from src.preprocessing.dataset_builder import SlidingWindow, DatasetBuilder
 from src.preprocessing.feature_extractor import FeatureExtractor
@@ -40,6 +42,12 @@ class PreprocessingPipeline:
 
         self.sample_count += 1
 
+        print(
+            f"sample_count={self.sample_count}, "
+            f"window_size={len(self.window.temperature)}, "
+            f"ready={self.window.ready()}"
+        )
+
         if self.window.ready() and self.sample_count % 10 == 0:
 
             features = FeatureExtractor.extract(
@@ -47,13 +55,16 @@ class PreprocessingPipeline:
                 list(self.window.vibration)
             )
 
+            window_label = Counter(self.window.status).most_common(1)[0][0]
+
             self.dataset.append(
                 features,
-                data["status"]
+                window_label
             )
 
             print("Saved feature vector:")
             print(features)
+            print(f"Window Label: {window_label}")
 
             return features
 
