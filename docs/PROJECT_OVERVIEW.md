@@ -1,5 +1,12 @@
 # Repo Layout
 
+## Notes
+
+- Team: Team-39
+- The repository was not reorganized to match the template structure from the problem statement.
+- The current layout is the result of building the solution step by step and keeping the working structure.
+- The web UI is only for demo use and screen recording. It is not required as part of the report.
+
 ## Files
 
 - `src/simulator/sensor_simulator.py` - sensor readings and MQTT publish
