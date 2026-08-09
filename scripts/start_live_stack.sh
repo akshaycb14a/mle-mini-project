@@ -3,7 +3,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="$ROOT_DIR/logs"
+MODEL_PATH="$ROOT_DIR/data/tflite/model_fp32.tflite"
 mkdir -p "$LOG_DIR"
+
+if [[ ! -f "$MODEL_PATH" ]]; then
+  echo "Missing $MODEL_PATH"
+  echo "Run ./scripts/run_training_demo.sh and ./scripts/run_model_tasks.sh first"
+  exit 1
+fi
 
 start_python_service() {
   local name="$1"

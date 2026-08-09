@@ -1,4 +1,4 @@
-variant,model_file,mean_inference_latency_ms,p95_inference_latency_ms,model_size_kb,classification_accuracy_percent,estimated_energy_per_inference_mj,critical_recall_percent,estimated_power_watts,power_source
-M1_FP32,data/tflite/model_fp32.tflite,0.0017737650778144598,0.0018749999580904841,5.16015625,97.77306468716861,0.008737304256082512,95.02762430939227,4.925852,ioreg_AppleSmartBattery
-M2_INT8,data/tflite/model_int8.tflite,0.003489375114440918,0.0036249998956918716,4.4453125,25.556733828207847,0.017188145386219024,98.34254143646409,4.925852,ioreg_AppleSmartBattery
-M3_Pruned_INT8,data/tflite/model_pruned_int8.tflite,0.0033877152018249035,0.0035840000491589308,4.4453125,98.93955461293743,0.016687383702339603,98.34254143646409,4.925852,ioreg_AppleSmartBattery
+variant,model_file,mean_inference_latency_ms,p95_inference_latency_ms,model_size_kb,classification_accuracy_percent,estimated_energy_per_inference_mj,critical_recall_percent,estimated_power_watts,cpu_utilization_fraction,laptop_tdp_watts,energy_label
+M1_FP32,data/tflite/model_fp32.tflite,0.0017845900729298592,0.0018749999580904841,5.16015625,100.0,0.005987727636138849,100.0,3.355239798184279,0.11982999279229568,28.0,estimated_from_cpu_utilization_and_laptop_tdp
+M2_INT8,data/tflite/model_int8.tflite,0.0035258550196886063,0.0037499999161809683,4.4453125,100.0,0.012377824337424001,100.0,3.5105880044146502,0.12537814301480893,28.0,estimated_from_cpu_utilization_and_laptop_tdp
+M3_Pruned_INT8,data/tflite/model_pruned_int8.tflite,0.003487519919872284,0.0037110501434653997,4.4453125,66.66666666666666,0.012245409243838493,100.0,3.511208401724894,0.12540030006160335,28.0,estimated_from_cpu_utilization_and_laptop_tdp

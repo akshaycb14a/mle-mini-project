@@ -8,6 +8,7 @@ class DatasetBuilder:
     def __init__(self, output_path):
 
         self.output_path = Path(output_path)
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.header_written = self.output_path.exists()
 

@@ -7,7 +7,6 @@ import sys
 import os
 from pathlib import Path
 
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
@@ -21,15 +20,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 import tensorflow as tf
 
 from src.training.normalization import (
-    FEATURE_NAMES,
     load_training_stats,
     normalize_dataframe,
     make_legacy_scaler,
 )
+from src.training.utils import load_dataset_frame, make_holdout_split
 
 DATASET = Path("data/processed/training_dataset.csv")
 MODEL_DIR = Path("data/models")
@@ -40,9 +38,7 @@ SCALER_PATH = MODEL_DIR / "scaler.pkl"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-df = pd.read_csv(DATASET)
-
-X = df.loc[:, list(FEATURE_NAMES)]
+df = load_dataset_frame(DATASET)
 y = df["label"]
 
 encoder = LabelEncoder()
@@ -50,13 +46,7 @@ y = encoder.fit_transform(y)
 
 joblib.dump(encoder, MODEL_DIR/"label_encoder.pkl")
 
-X_train, X_temp, y_train, y_temp = train_test_split(
-    X, y, test_size=0.30, stratify=y, random_state=42
-)
-
-X_val, X_test, y_val, y_test = train_test_split(
-    X_temp, y_temp, test_size=0.50, stratify=y_temp, random_state=42
-)
+X_train, X_val, y_train, y_val = make_holdout_split(df, y)
 
 if STATS_PATH.exists():
     stats = load_training_stats(STATS_PATH)
@@ -67,7 +57,6 @@ else:
 
 X_train = normalize_dataframe(X_train, stats)
 X_val = normalize_dataframe(X_val, stats)
-X_test = normalize_dataframe(X_test, stats)
 
 legacy_scaler = make_legacy_scaler(stats)
 joblib.dump(legacy_scaler, SCALER_PATH)
@@ -101,8 +90,8 @@ history = model.fit(
     verbose=1,
 )
 
-loss, acc = model.evaluate(X_test, y_test, verbose=0)
-print(f"Test Accuracy: {acc:.4f}")
+loss, acc = model.evaluate(X_val, y_val, verbose=0)
+print(f"Held-out Accuracy: {acc:.4f}")
 
 model.save(MODEL_DIR/"edge_classifier.keras")
 

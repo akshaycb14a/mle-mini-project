@@ -104,7 +104,7 @@ def load_recent_confidences(db_path=DEFAULT_DB_PATH, limit=100):
 
 def build_clean_reference_scores(sample_target=300):
     simulator = SensorSimulator(anomaly="none")
-    pipeline = PreprocessingPipeline()
+    pipeline = PreprocessingPipeline(save_dataset=False)
     predictor = EdgePredictor()
     scores = []
 
@@ -231,7 +231,7 @@ def collect_demo_scores(predictor, phases, counts):
     for anomaly, sample_count in zip(phases, counts):
         print(f"Demo phase: {anomaly} ({sample_count} windows)")
         simulator = SensorSimulator(anomaly=anomaly)
-        pipeline = PreprocessingPipeline()
+        pipeline = PreprocessingPipeline(save_dataset=False)
         phase_scores = []
         while len(phase_scores) < sample_count:
             reading = simulator.generate_reading()

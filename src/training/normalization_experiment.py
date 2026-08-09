@@ -12,10 +12,10 @@ if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.training.normalization import (
-    FEATURE_NAMES,
     load_training_stats,
     normalize_dataframe,
 )
+from src.training.utils import load_dataset_frame, make_holdout_split
 
 
 DATASET = Path("data/processed/training_dataset.csv")
@@ -47,9 +47,7 @@ def shift_stats_by_sigma(stats, sigma=3.0):
 def main():
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(DATASET)
-    feature_cols = list(FEATURE_NAMES)
-    X = df.loc[:, feature_cols]
+    df = load_dataset_frame(DATASET)
     y = df["label"]
 
     model = tf.keras.models.load_model(MODEL)
@@ -57,12 +55,13 @@ def main():
     stats = load_training_stats(STATS)
 
     encoded_y = encoder.transform(y)
+    _, X_val, _, y_val = make_holdout_split(df, encoded_y)
 
-    correct_accuracy = evaluate_with_stats(model, X, encoded_y, stats)
+    correct_accuracy = evaluate_with_stats(model, X_val, y_val, stats)
     shifted_accuracy = evaluate_with_stats(
         model,
-        X,
-        encoded_y,
+        X_val,
+        y_val,
         shift_stats_by_sigma(stats, 3.0),
     )
 
@@ -71,6 +70,7 @@ def main():
 
     payload = {
         "dataset": str(DATASET),
+        "split": "held_out_validation_20_percent",
         "model": str(MODEL),
         "stats": str(STATS),
         "correct_stats_accuracy": float(correct_accuracy),

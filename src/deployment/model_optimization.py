@@ -1,16 +1,13 @@
 import os
-import re
-import subprocess
 import sys
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
+import psutil
 import tensorflow as tf
 import tensorflow_model_optimization as tfmot
 from sklearn.metrics import accuracy_score, recall_score
-from sklearn.model_selection import train_test_split
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -22,6 +19,7 @@ from src.training.normalization import (
     load_training_stats,
     normalize_dataframe,
 )
+from src.training.utils import load_dataset_frame, make_holdout_split
 
 
 DATASET = Path("data/processed/training_dataset.csv")
@@ -36,8 +34,7 @@ TFLITE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_training_artifacts():
-    df = pd.read_csv(DATASET)
-    X = df.loc[:, list(FEATURE_NAMES)]
+    df = load_dataset_frame(DATASET)
     y = df["label"]
 
     import joblib
@@ -45,21 +42,7 @@ def load_training_artifacts():
     encoder = joblib.load(ENCODER_PATH)
     y_encoded = encoder.transform(y)
 
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X,
-        y_encoded,
-        test_size=0.30,
-        stratify=y_encoded,
-        random_state=42,
-    )
-
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp,
-        y_temp,
-        test_size=0.50,
-        stratify=y_temp,
-        random_state=42,
-    )
+    X_train, X_val, y_train, y_val = make_holdout_split(df, y_encoded)
 
     stats = load_training_stats(STATS_PATH)
     X_train_norm = normalize_dataframe(X_train, stats).astype(np.float32)
@@ -102,11 +85,13 @@ def load_base_model():
 
 
 def representative_dataset(samples, limit=200):
-    sample_count = min(limit, len(samples))
+    shuffled = np.asarray(samples, dtype=np.float32).copy()
+    np.random.default_rng(42).shuffle(shuffled)
+    sample_count = min(limit, len(shuffled))
     if sample_count < 200:
         raise ValueError("Representative dataset requires at least 200 samples")
 
-    for row in samples[:sample_count]:
+    for row in shuffled[:sample_count]:
         yield [np.asarray(row, dtype=np.float32).reshape(1, -1)]
 
 
@@ -132,12 +117,13 @@ def convert_full_int8_model(model, output_path, representative_samples):
     return Path(output_path)
 
 
-def build_pruned_model(base_model, target_sparsity=0.35):
+def build_pruned_model(base_model, end_step, target_sparsity=0.35):
     pruning_params = {
-        "pruning_schedule": tfmot.sparsity.keras.ConstantSparsity(
-            target_sparsity,
+        "pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(
+            initial_sparsity=0.0,
+            final_sparsity=target_sparsity,
             begin_step=0,
-            frequency=100,
+            end_step=end_step,
         ),
         "block_size": (1, 4),
         "block_pooling_type": "AVG",
@@ -191,7 +177,9 @@ def fine_tune_pruned_model(pruned_model, X_train, y_train, X_val, y_val):
 
 
 def export_pruned_int8_model(base_model, output_path, representative_samples):
-    pruned_model = build_pruned_model(base_model)
+    steps_per_epoch = int(np.ceil(len(representative_samples["X_train"]) / 16.0))
+    end_step = max(steps_per_epoch * 6, 1)
+    pruned_model = build_pruned_model(base_model, end_step=end_step)
     pruned_model = fine_tune_pruned_model(
         pruned_model,
         representative_samples["X_train"],
@@ -290,43 +278,11 @@ def benchmark_latency_ms(model_path, samples, warmup=10, runs=200):
     return float(durations.mean()), float(np.percentile(durations, 95)), durations
 
 
-def _parse_ioreg_value(text, key):
-    match = re.search(rf'"{re.escape(key)}"\s*=\s*([0-9\-]+)', text)
-    if not match:
-        return None
-    raw = int(match.group(1))
-    if raw >= 2**63:
-        raw -= 2**64
-    return raw
+def estimate_power_from_cpu(cpu_utilization_fraction, laptop_tdp_watts):
+    return float(laptop_tdp_watts) * float(cpu_utilization_fraction)
 
 
-def measure_power_watts(default_watts=5.0):
-    try:
-        output = subprocess.check_output(
-            ["/usr/sbin/ioreg", "-rn", "AppleSmartBattery"],
-            text=True,
-        )
-    except Exception:
-        try:
-            output = subprocess.check_output(
-                ["ioreg", "-rn", "AppleSmartBattery"],
-                text=True,
-            )
-        except Exception:
-            return float(default_watts), "fallback_default"
-
-    amperage_ma = _parse_ioreg_value(output, "Amperage")
-    voltage_mv = _parse_ioreg_value(output, "Voltage")
-    if amperage_ma is None or voltage_mv is None:
-        return float(default_watts), "fallback_default"
-
-    watts = abs(amperage_ma) * voltage_mv / 1_000_000.0
-    if watts <= 0:
-        return float(default_watts), "fallback_default"
-    return float(watts), "ioreg_AppleSmartBattery"
-
-
-def compute_metrics_for_model(model_path, frame, labels, encoder, power_watts=None):
+def compute_metrics_for_model(model_path, frame, labels, encoder, laptop_tdp_watts=28.0):
     samples = frame.to_numpy(dtype=np.float32)
     predictions = run_tflite_predictions(model_path, samples)
     accuracy = accuracy_score(labels, predictions) * 100.0
@@ -338,10 +294,25 @@ def compute_metrics_for_model(model_path, frame, labels, encoder, power_watts=No
         average="macro",
         zero_division=0,
     ) * 100.0
+    process = psutil.Process()
+    cpu_count = max(psutil.cpu_count(logical=True) or 1, 1)
+    cpu_start = process.cpu_times()
+    wall_start = time.perf_counter()
     mean_latency, p95_latency, durations = benchmark_latency_ms(model_path, samples)
+    wall_elapsed = max(time.perf_counter() - wall_start, 1e-9)
+    cpu_end = process.cpu_times()
+    cpu_time_used = (
+        (cpu_end.user + cpu_end.system) -
+        (cpu_start.user + cpu_start.system)
+    )
+    cpu_utilization_fraction = cpu_time_used / (wall_elapsed * cpu_count)
+    cpu_utilization_fraction = float(np.clip(cpu_utilization_fraction, 0.0, 1.0))
     file_size_kb = Path(model_path).stat().st_size / 1024.0
-    measured_power_watts, power_source = measure_power_watts() if power_watts is None else (power_watts, "override")
-    mean_energy_mj = measured_power_watts * mean_latency
+    estimated_power_watts = estimate_power_from_cpu(
+        cpu_utilization_fraction,
+        laptop_tdp_watts,
+    )
+    mean_energy_mj = estimated_power_watts * mean_latency
     return {
         "mean_latency_ms": mean_latency,
         "p95_latency_ms": p95_latency,
@@ -349,7 +320,8 @@ def compute_metrics_for_model(model_path, frame, labels, encoder, power_watts=No
         "accuracy_percent": accuracy,
         "estimated_energy_mj": mean_energy_mj,
         "critical_recall_percent": critical_recall,
-        "power_watts": measured_power_watts,
-        "power_source": power_source,
+        "estimated_power_watts": estimated_power_watts,
+        "cpu_utilization_fraction": cpu_utilization_fraction,
+        "laptop_tdp_watts": float(laptop_tdp_watts),
         "latency_samples_ms": durations,
     }

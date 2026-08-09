@@ -1,8 +1,9 @@
 {
   "dataset": "data/processed/training_dataset.csv",
+  "split": "held_out_validation_20_percent",
   "model": "data/models/best_model.keras",
   "stats": "data/models/training_stats.npy",
-  "correct_stats_accuracy": 0.9796178343949045,
-  "shifted_stats_accuracy": 0.984235668789809,
+  "correct_stats_accuracy": 1.0,
+  "shifted_stats_accuracy": 1.0,
   "shift_sigma": 3.0
 }
