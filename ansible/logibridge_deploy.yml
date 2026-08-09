@@ -1,0 +1,86 @@
+---
+- hosts: edge
+  become: true
+  collections:
+    - community.docker
+
+  vars:
+    project_dir: "{{ playbook_dir }}/.."
+    deploy_dir: /opt/logibridge
+    deploy_group: "{{ 'wheel' if ansible_facts.os_family == 'Darwin' else 'root' }}"
+    container_name: logibridge-inference
+    model_source: "{{ project_dir }}/data/tflite/model_fp32.tflite"
+    reference_source: "{{ project_dir }}/reference_dist.json"
+    model_path_in_container: /app/data/tflite/model_fp32.tflite
+    mqtt_broker: localhost
+    mqtt_port: "1883"
+    truck_id: TRUCK_001
+    sensor_topic: "logibridge/trucks/{{ truck_id }}/sensors"
+    inference_topic: "logibridge/trucks/{{ truck_id }}/inference"
+
+  tasks:
+    - name: Create /opt/logibridge if missing
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        owner: root
+        group: "{{ deploy_group }}"
+        mode: "0755"
+
+    - name: Copy the model file to /opt/logibridge/model.tflite
+      ansible.builtin.copy:
+        src: "{{ model_source }}"
+        dest: "{{ deploy_dir }}/model.tflite"
+        owner: root
+        group: "{{ deploy_group }}"
+        mode: "0644"
+      register: model_copy
+
+    - name: Copy updated reference_dist.json
+      ansible.builtin.copy:
+        src: "{{ reference_source }}"
+        dest: "{{ deploy_dir }}/reference_dist.json"
+        owner: root
+        group: "{{ deploy_group }}"
+        mode: "0644"
+      register: reference_copy
+
+    - name: Stop the running inference container if it is running
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: stopped
+      when: model_copy.changed or reference_copy.changed
+
+    - name: Pull or prepare the updated inference container image from the local Docker setup/registry
+      community.docker.docker_image:
+        name: "logibridge-inference:{{ model_copy.checksum[:12] }}"
+        source: build
+        force_source: false
+        build:
+          path: "{{ project_dir }}"
+          pull: false
+          args:
+            MODEL_FILE: model_fp32.tflite
+      register: inference_image
+
+    - name: Start the inference container with the required environment variables
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "logibridge-inference:{{ model_copy.checksum[:12] }}"
+        state: started
+        restart_policy: unless-stopped
+        env:
+          MQTT_BROKER: "{{ mqtt_broker }}"
+          MQTT_PORT: "{{ mqtt_port }}"
+          TRUCK_ID: "{{ truck_id }}"
+          MQTT_SENSOR_TOPIC: "{{ sensor_topic }}"
+          MQTT_INFERENCE_TOPIC: "{{ inference_topic }}"
+          MODEL_PATH: "{{ model_path_in_container }}"
+
+    - name: Wait approximately 15 seconds and verify the container is running
+      community.docker.docker_container_info:
+        name: "{{ container_name }}"
+      register: container_info
+      retries: 15
+      delay: 1
+      until: container_info.container.State.Running

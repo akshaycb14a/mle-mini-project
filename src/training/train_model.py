@@ -3,26 +3,46 @@ train_model.py
 Training pipeline for the Edge AI cold-chain monitor.
 """
 
+import sys
+import os
 from pathlib import Path
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/matplotlib")
+
 import joblib
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from src.training.normalization import (
+    FEATURE_NAMES,
+    load_training_stats,
+    normalize_dataframe,
+    make_legacy_scaler,
+)
 
 DATASET = Path("data/processed/training_dataset.csv")
 MODEL_DIR = Path("data/models")
 REPORT_DIR = Path("reports")
+STATS_PATH = MODEL_DIR / "training_stats.npy"
+SCALER_PATH = MODEL_DIR / "scaler.pkl"
 
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(DATASET)
 
-X = df.drop(columns=["label"])
+X = df.loc[:, list(FEATURE_NAMES)]
 y = df["label"]
 
 encoder = LabelEncoder()
@@ -38,12 +58,19 @@ X_val, X_test, y_val, y_test = train_test_split(
     X_temp, y_temp, test_size=0.50, stratify=y_temp, random_state=42
 )
 
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_val = scaler.transform(X_val)
-X_test = scaler.transform(X_test)
+if STATS_PATH.exists():
+    stats = load_training_stats(STATS_PATH)
+else:
+    raise FileNotFoundError(
+        f"Missing {STATS_PATH}. Run src/training/generate_training_stats.py first."
+    )
 
-joblib.dump(scaler, MODEL_DIR/"scaler.pkl")
+X_train = normalize_dataframe(X_train, stats)
+X_val = normalize_dataframe(X_val, stats)
+X_test = normalize_dataframe(X_test, stats)
+
+legacy_scaler = make_legacy_scaler(stats)
+joblib.dump(legacy_scaler, SCALER_PATH)
 
 model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(X_train.shape[1],)),

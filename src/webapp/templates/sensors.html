@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% set title = "Sensor Runs" %}
+{% block content %}
+<h1>Sensor Runs</h1>
+
+<div class="panel">
+  <h2>Start a Run</h2>
+  <form id="sensor-form">
+    <select name="anomaly">
+      <option value="none">none</option>
+      <option value="temp_drift">temp_drift</option>
+      <option value="vibration">vibration</option>
+      <option value="combined">combined</option>
+    </select>
+    <input type="number" name="count" value="60" min="1" step="1">
+    <input type="number" name="interval" value="0.2" min="0.05" step="0.05">
+    <button type="submit">Start</button>
+    <button type="button" id="stop-button">Stop</button>
+  </form>
+  <div id="sensor-error" style="margin-top: 12px; color: #b42318;"></div>
+</div>
+
+<div class="grid" style="margin-top: 18px;">
+  <div class="panel">
+    <h2>Status</h2>
+    <div class="label">Current run</div>
+    <div id="run-status" class="status stopped">stopped</div>
+    <div style="margin-top: 12px;" id="run-details">No active run</div>
+    <div style="margin-top: 8px;" class="label" id="run-log-path">Log: -</div>
+  </div>
+  <div class="panel">
+    <h2>Quick Buttons</h2>
+    <button onclick="startQuickRun('none')">Normal</button>
+    <button onclick="startQuickRun('temp_drift')">Temp Drift</button>
+    <button onclick="startQuickRun('vibration')">Vibration</button>
+    <button onclick="startQuickRun('combined')">Combined</button>
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 18px;">
+  <h2>Sensor Log Tail</h2>
+  <pre id="sensor-log">Loading...</pre>
+</div>
+
+<script>
+async function refreshSensorStatus() {
+  const response = await fetch("/api/sensors/status");
+  const data = await response.json();
+
+  const status = document.getElementById("run-status");
+  status.textContent = data.running ? "running" : "stopped";
+  status.className = data.running ? "status running" : "status stopped";
+
+  if (data.running) {
+    document.getElementById("run-details").textContent =
+      `anomaly=${data.anomaly} count=${data.count} interval=${data.interval}s pid=${data.pid}`;
+  } else {
+    document.getElementById("run-details").textContent = "No active run";
+  }
+
+  document.getElementById("run-log-path").textContent = `Log: ${data.log_path || "-"}`;
+
+  document.getElementById("sensor-error").textContent = data.last_error || "";
+
+  document.getElementById("sensor-log").textContent = (data.log_tail || []).join("\n");
+}
+
+async function postJson(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    return {
+      ok: false,
+      error: text.slice(0, 200) || "Server returned a non-JSON response",
+    };
+  }
+
+  const data = await response.json();
+  if (!response.ok && !data.error) {
+    data.error = "Request failed";
+  }
+  return data;
+}
+
+document.getElementById("sensor-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const payload = Object.fromEntries(formData.entries());
+  const data = await postJson("/api/sensors/run", payload);
+  if (!data.ok) {
+    document.getElementById("sensor-error").textContent = data.error || "Run could not be started";
+  }
+  refreshSensorStatus();
+});
+
+document.getElementById("stop-button").addEventListener("click", async () => {
+  await postJson("/api/sensors/stop", {});
+  refreshSensorStatus();
+});
+
+async function startQuickRun(anomaly) {
+  const data = await postJson("/api/sensors/run", {
+    anomaly: anomaly,
+    count: 60,
+    interval: 0.2
+  });
+  if (!data.ok) {
+    document.getElementById("sensor-error").textContent = data.error || "Run could not be started";
+  }
+  refreshSensorStatus();
+}
+
+refreshSensorStatus();
+setInterval(refreshSensorStatus, 2000);
+</script>
+{% endblock %}

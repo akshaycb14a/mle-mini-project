@@ -4,10 +4,10 @@ class Repository:
     def __init__(self, db):
         self.db = db
 
-    def insert_telemetry(self, device_id, temperature, humidity, anomaly_score):
+    def insert_telemetry(self, device_id, temperature, vibration, anomaly_score):
         self.db.execute(
-            "INSERT INTO telemetry(timestamp,device_id,temperature,humidity,anomaly_score) VALUES(?,?,?,?,?)",
-            (datetime.utcnow().isoformat(), device_id, temperature, humidity, anomaly_score),
+            "INSERT INTO telemetry(timestamp,device_id,temperature,vibration,anomaly_score) VALUES(?,?,?,?,?)",
+            (datetime.utcnow().isoformat(), device_id, temperature, vibration, anomaly_score),
         )
 
     def insert_inference(self, prediction, confidence):

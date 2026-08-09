@@ -2,12 +2,12 @@ from .logger import get_logger
 
 logger = get_logger()
 
-def log_telemetry(device_id, temperature, humidity):
+def log_telemetry(device_id, temperature, vibration):
     logger.info(
-        "Telemetry | device=%s temp=%.2f humidity=%.2f",
+        "Telemetry | device=%s temp=%.2f vibration=%.2f",
         device_id,
         temperature,
-        humidity,
+        vibration,
     )
 
 def log_inference(prediction, confidence):

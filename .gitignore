@@ -9,6 +9,7 @@ __pycache__/
 
 # VS Code
 .vscode/
+.idea/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -33,3 +34,7 @@ Thumbs.db
 
 # Environment
 .env
+
+# Local demo files
+data/tflite/model_demo.tflite
+*.pdf
