@@ -31,6 +31,32 @@ class EdgePredictor:
         self.stats = load_training_stats(stats_path)
         self.encoder = joblib.load(encoder_path)
 
+    def _quantize_input(self, vector):
+        dtype = self.input["dtype"]
+        if dtype == np.float32:
+            return vector.astype(np.float32)
+
+        scale, zero_point = self.input["quantization"]
+        if scale == 0:
+            raise ValueError("Invalid quantization scale for model input")
+
+        quantized = np.round(vector / scale + zero_point)
+        if dtype == np.int8:
+            quantized = np.clip(quantized, -128, 127)
+        elif dtype == np.uint8:
+            quantized = np.clip(quantized, 0, 255)
+        return quantized.astype(dtype)
+
+    def _dequantize_output(self, raw_output):
+        dtype = self.output["dtype"]
+        if dtype == np.float32:
+            return raw_output.astype(np.float32)
+
+        scale, zero_point = self.output["quantization"]
+        if scale == 0:
+            return raw_output.astype(np.float32)
+        return scale * (raw_output.astype(np.float32) - zero_point)
+
     def predict(self, features: dict):
         vector = np.array([[
             features["temp_mean"],
@@ -42,11 +68,13 @@ class EdgePredictor:
         ]], dtype=np.float32)
 
         vector = normalize_matrix(vector, self.stats).astype(np.float32)
+        input_tensor = self._quantize_input(vector)
 
-        self.interpreter.set_tensor(self.input["index"], vector)
+        self.interpreter.set_tensor(self.input["index"], input_tensor)
         self.interpreter.invoke()
 
-        probs = self.interpreter.get_tensor(self.output["index"])[0]
+        raw_output = self.interpreter.get_tensor(self.output["index"])
+        probs = self._dequantize_output(raw_output)[0]
         idx = int(np.argmax(probs))
 
         return {

@@ -7,16 +7,17 @@ from src.preprocessing.feature_extractor import FeatureExtractor
 
 class PreprocessingPipeline:
 
-    def __init__(self):
+    def __init__(self, save_dataset=False, dataset_path="data/processed/training_dataset.csv"):
 
         self.temp_filter = MovingAverageFilter(window_size=5)
         self.vib_filter = MovingAverageFilter(window_size=5)
 
         self.window = SlidingWindow(size=30)
 
-        self.dataset = DatasetBuilder(
-            "data/processed/training_dataset.csv"
-        )
+        self.save_dataset = save_dataset
+        self.dataset = None
+        if self.save_dataset:
+            self.dataset = DatasetBuilder(dataset_path)
 
         self.sample_count = 0
 
@@ -57,14 +58,15 @@ class PreprocessingPipeline:
 
             window_label = Counter(self.window.status).most_common(1)[0][0]
 
-            self.dataset.append(
-                features,
-                window_label
-            )
+            if self.save_dataset:
+                self.dataset.append(
+                    features,
+                    window_label
+                )
 
-            print("Saved feature vector:")
-            print(features)
-            print(f"Window Label: {window_label}")
+                print("Saved feature vector:")
+                print(features)
+                print(f"Window Label: {window_label}")
 
             return features
 

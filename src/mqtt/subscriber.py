@@ -34,7 +34,7 @@ INFERENCE_TOPIC = os.getenv(
     f"logibridge/trucks/{TRUCK_ID}/inference",
 )
 
-pipeline = PreprocessingPipeline()
+pipeline = PreprocessingPipeline(save_dataset=False)
 
 predictor = EdgePredictor()
 

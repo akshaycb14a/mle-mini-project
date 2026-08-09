@@ -17,7 +17,6 @@ from src.deployment.model_optimization import (
     TFLITE_DIR,
     compute_metrics_for_model,
     load_training_artifacts,
-    measure_power_watts,
 )
 
 
@@ -35,11 +34,8 @@ def main():
     )
     validation_labels = artifacts["y_benchmark"]
     encoder = artifacts["encoder"]
-    measured_power_watts, power_source = measure_power_watts()
-    print(
-        f"Using measured power: {measured_power_watts:.4f} W "
-        f"({power_source})"
-    )
+    laptop_tdp_watts = float(os.getenv("LAPTOP_TDP_W", "28.0"))
+    print(f"Using laptop TDP estimate: {laptop_tdp_watts:.2f} W")
 
     models = [
         ("M1_FP32", TFLITE_DIR / "model_fp32.tflite"),
@@ -55,7 +51,7 @@ def main():
             validation_frame,
             validation_labels,
             encoder,
-            power_watts=measured_power_watts,
+            laptop_tdp_watts=laptop_tdp_watts,
         )
 
         row = {
@@ -67,8 +63,10 @@ def main():
             "classification_accuracy_percent": metrics["accuracy_percent"],
             "estimated_energy_per_inference_mj": metrics["estimated_energy_mj"],
             "critical_recall_percent": metrics["critical_recall_percent"],
-            "estimated_power_watts": measured_power_watts,
-            "power_source": power_source,
+            "estimated_power_watts": metrics["estimated_power_watts"],
+            "cpu_utilization_fraction": metrics["cpu_utilization_fraction"],
+            "laptop_tdp_watts": metrics["laptop_tdp_watts"],
+            "energy_label": "estimated_from_cpu_utilization_and_laptop_tdp",
         }
         rows.append(row)
         print(
