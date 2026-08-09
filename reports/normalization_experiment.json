@@ -2,7 +2,7 @@
   "dataset": "data/processed/training_dataset.csv",
   "model": "data/models/best_model.keras",
   "stats": "data/models/training_stats.npy",
-  "correct_stats_accuracy": 0.951530612244898,
-  "shifted_stats_accuracy": 0.7420634920634921,
+  "correct_stats_accuracy": 0.9796178343949045,
+  "shifted_stats_accuracy": 0.984235668789809,
   "shift_sigma": 3.0
 }
