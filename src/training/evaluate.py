@@ -3,30 +3,44 @@ evaluate.py
 Evaluate trained classifier.
 """
 
+import sys
+import os
 from pathlib import Path
-import joblib
+
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/matplotlib")
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
 
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from src.training.normalization import FEATURE_NAMES, load_training_stats, normalize_dataframe
 
 DATASET = Path("data/processed/training_dataset.csv")
 MODEL = Path("data/models/best_model.keras")
-SCALER = Path("data/models/scaler.pkl")
+STATS = Path("data/models/training_stats.npy")
 ENCODER = Path("data/models/label_encoder.pkl")
 REPORT_DIR = Path("reports")
 
 df = pd.read_csv(DATASET)
 
-X = df.drop(columns=["label"])
+X = df.loc[:, list(FEATURE_NAMES)]
 y = df["label"]
+
+import joblib
 
 encoder = joblib.load(ENCODER)
 y = encoder.transform(y)
 
-scaler = joblib.load(SCALER)
-X = scaler.transform(X)
+stats = load_training_stats(STATS)
+X = normalize_dataframe(X, stats)
 
 model = tf.keras.models.load_model(MODEL)
 

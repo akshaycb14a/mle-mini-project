@@ -1,38 +1,16 @@
-import os
-import json
-import time
+import sys
 
-import paho.mqtt.client as mqtt
+from pathlib import Path
 
-from src.simulator.sensor_simulator import SensorSimulator
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from src.simulator.sensor_simulator import build_parser, run_mqtt_stream
 
 
+def main():
+    run_mqtt_stream(build_parser().parse_args())
 
-BROKER = os.getenv("MQTT_BROKER", "localhost")
-PORT = 1883
-TOPIC = "logiedge/truck001/sensors"
 
-client = mqtt.Client(
-    mqtt.CallbackAPIVersion.VERSION2
-)
-
-client.connect(BROKER, PORT)
-client.loop_start()
-
-simulator = SensorSimulator(
-    truck_id="TRUCK_001",
-    mode="random"
-)
-
-print("Publishing simulated sensor data...\n")
-
-while True:
-
-    reading = simulator.generate_reading()
-
-    info = client.publish(TOPIC, json.dumps(reading))
-    info.wait_for_publish()
-
-    print(reading)
-
-    time.sleep(1)
+if __name__ == "__main__":
+    main()

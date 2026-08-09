@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS telemetry(
     timestamp TEXT NOT NULL,
     device_id TEXT NOT NULL,
     temperature REAL,
-    humidity REAL,
+    vibration REAL,
     anomaly_score REAL
 );
 

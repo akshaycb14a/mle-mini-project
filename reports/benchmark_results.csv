@@ -1,0 +1,4 @@
+variant,model_file,mean_inference_latency_ms,p95_inference_latency_ms,model_size_kb,classification_accuracy_percent,estimated_energy_per_inference_mj,critical_recall_percent,estimated_power_watts,power_source
+M1_FP32,data/tflite/model_fp32.tflite,0.0018125149654224515,0.001959000015631318,5.16015625,94.42675159235668,0.025605181414727122,70.0,14.12688,ioreg_AppleSmartBattery
+M2_INT8,data/tflite/model_int8.tflite,0.0034301800187677145,0.0036249998956918716,4.4453125,92.67515923566879,0.04845774150352925,73.63636363636363,14.12688,ioreg_AppleSmartBattery
+M3_Pruned_INT8,data/tflite/model_pruned_int8.tflite,0.0034177147317677736,0.0035830000415444374,4.4453125,98.08917197452229,0.04828164588991553,92.72727272727272,14.12688,ioreg_AppleSmartBattery

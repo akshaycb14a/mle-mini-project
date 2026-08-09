@@ -1,0 +1,2 @@
+dataset,model,stats,correct_stats_accuracy,shifted_stats_accuracy,shift_sigma
+data/processed/training_dataset.csv,data/models/best_model.keras,data/models/training_stats.npy,0.951530612244898,0.7420634920634921,3.0

@@ -14,6 +14,9 @@ services:
       - mosquitto
     environment:
       MQTT_BROKER: mosquitto
+      MQTT_PORT: 1883
+      TRUCK_ID: TRUCK_001
+      MQTT_SENSOR_TOPIC: logibridge/trucks/TRUCK_001/sensors
 
   logiedge:
     build: .
@@ -22,6 +25,10 @@ services:
       - mosquitto
     environment:
       MQTT_BROKER: mosquitto
+      MQTT_PORT: 1883
+      TRUCK_ID: TRUCK_001
+      MQTT_SENSOR_TOPIC: logibridge/trucks/TRUCK_001/sensors
+      MQTT_INFERENCE_TOPIC: logibridge/trucks/TRUCK_001/inference
+      MODEL_PATH: /app/data/tflite/model_fp32.tflite
     volumes:
       - ./logs:/app/logs
-      - ./data:/app/data

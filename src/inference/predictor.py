@@ -2,24 +2,33 @@
 predictor.py
 Reusable TensorFlow Lite predictor.
 """
+import os
+
 import numpy as np
 import tensorflow as tf
-import joblib
+
+from src.training.normalization import load_training_stats, normalize_matrix
 
 class EdgePredictor:
     def __init__(
         self,
-        model_path="data/tflite/edge_classifier_fp32.tflite",
-        scaler_path="data/models/scaler.pkl",
+        model_path=None,
+        stats_path="data/models/training_stats.npy",
         encoder_path="data/models/label_encoder.pkl",
     ):
+        model_path = model_path or os.getenv(
+            "MODEL_PATH",
+            "data/tflite/model_fp32.tflite",
+        )
         self.interpreter = tf.lite.Interpreter(model_path=model_path)
         self.interpreter.allocate_tensors()
 
         self.input = self.interpreter.get_input_details()[0]
         self.output = self.interpreter.get_output_details()[0]
 
-        self.scaler = joblib.load(scaler_path)
+        import joblib
+
+        self.stats = load_training_stats(stats_path)
         self.encoder = joblib.load(encoder_path)
 
     def predict(self, features: dict):
@@ -32,7 +41,7 @@ class EdgePredictor:
             features["vibration_kurtosis"],
         ]], dtype=np.float32)
 
-        vector = self.scaler.transform(vector).astype(np.float32)
+        vector = normalize_matrix(vector, self.stats).astype(np.float32)
 
         self.interpreter.set_tensor(self.input["index"], vector)
         self.interpreter.invoke()

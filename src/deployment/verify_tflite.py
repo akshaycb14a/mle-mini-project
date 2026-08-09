@@ -2,17 +2,22 @@
 verify_tflite.py
 Verify TensorFlow Lite model inference.
 """
+import sys
 from pathlib import Path
 import numpy as np
 import tensorflow as tf
-import joblib
 import pandas as pd
 
-df = pd.read_csv("data/processed/training_dataset.csv")
-X = df.drop(columns=["label"])
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-scaler = joblib.load("data/models/scaler.pkl")
-X = scaler.transform(X).astype(np.float32)
+from src.training.normalization import FEATURE_NAMES, load_training_stats, normalize_dataframe
+
+df = pd.read_csv("data/processed/training_dataset.csv")
+X = df.loc[:, list(FEATURE_NAMES)]
+
+stats = load_training_stats("data/models/training_stats.npy")
+X = normalize_dataframe(X, stats).astype(np.float32)
 
 interpreter = tf.lite.Interpreter(
     model_path="data/tflite/edge_classifier_fp32.tflite"
