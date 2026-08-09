@@ -12,8 +12,9 @@ start_python_service() {
   local logfile="$LOG_DIR/${name}.log"
 
   if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-    echo "$name already running"
-    return
+    kill "$(cat "$pidfile")" 2>/dev/null || true
+    rm -f "$pidfile"
+    sleep 1
   fi
 
   PYTHONUNBUFFERED=1 nohup "$ROOT_DIR/.venv/bin/python" -u "$@" >"$logfile" 2>&1 &

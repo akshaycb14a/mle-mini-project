@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sqlite3
 import sys
 import time
 from collections import deque
@@ -21,6 +22,7 @@ from src.simulator.sensor_simulator import SensorSimulator
 
 BIN_EDGES = np.array([0.0, 0.25, 0.50, 0.75, 1.0], dtype=np.float32)
 REFERENCE_OUTPUT = Path("reference_dist.json")
+DEFAULT_DB_PATH = Path("logiedge.db")
 
 
 def confidence_to_bin(confidence):
@@ -77,6 +79,29 @@ def load_reference_distribution(path=REFERENCE_OUTPUT):
     return json.loads(Path(path).read_text())
 
 
+def load_recent_confidences(db_path=DEFAULT_DB_PATH, limit=100):
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return []
+
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT confidence
+            FROM inference_results
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (int(limit),),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    scores = [float(row[0]) for row in reversed(rows) if row[0] is not None]
+    return scores
+
+
 def build_clean_reference_scores(sample_target=300):
     simulator = SensorSimulator(anomaly="none")
     pipeline = PreprocessingPipeline()
@@ -105,6 +130,9 @@ class PSIDriftMonitor:
     def observe(self, confidence):
         self.window.append(float(confidence))
 
+    def progress(self):
+        return len(self.window), self.window.maxlen
+
     def current_psi(self):
         if len(self.window) < self.window.maxlen:
             return None
@@ -124,6 +152,7 @@ def build_parser():
         default=os.getenv("MQTT_INFERENCE_TOPIC", "logibridge/trucks/TRUCK_001/inference"),
     )
     parser.add_argument("--truck-id", default=os.getenv("TRUCK_ID", "TRUCK_001"))
+    parser.add_argument("--db-path", default=str(DEFAULT_DB_PATH))
     parser.add_argument("--demo", action="store_true")
     parser.add_argument(
         "--demo-phases",
@@ -154,6 +183,9 @@ def ensure_reference(path):
 
 def run_mqtt_monitor(args, reference_dist):
     monitor = PSIDriftMonitor(reference_dist=reference_dist, window_size=args.window_size)
+    backfill_scores = load_recent_confidences(args.db_path, args.window_size)
+    for score in backfill_scores:
+        monitor.observe(score)
 
     def on_connect(client, userdata, flags, rc, properties=None):
         print(f"Connected to MQTT broker (rc={rc})")
@@ -174,12 +206,16 @@ def run_mqtt_monitor(args, reference_dist):
     client.loop_start()
 
     print(f"Listening on {args.inference_topic}")
+    if backfill_scores:
+        seen, target = monitor.progress()
+        print(f"Backfilled PSI window with {seen}/{target} recent confidence scores")
     try:
         while True:
             time.sleep(args.check_interval)
             current = monitor.current_psi()
             if current is None:
-                print(f"Current PSI: waiting for {args.window_size} confidence scores")
+                seen, target = monitor.progress()
+                print(f"Current PSI: waiting for {target} confidence scores ({seen}/{target})")
                 continue
             print(f"Current PSI: {current:.4f}")
             if current > 0.25:

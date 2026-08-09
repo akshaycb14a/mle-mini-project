@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% set title = "Reports" %}
+{% block content %}
+<h1>Reports</h1>
+
+<div class="panel">
+  <h2>Benchmark Results</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Variant</th>
+        <th>Latency (ms)</th>
+        <th>P95 (ms)</th>
+        <th>Size (KB)</th>
+        <th>Accuracy (%)</th>
+        <th>Energy (mJ)</th>
+        <th>Critical Recall (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in benchmark_rows %}
+      <tr>
+        <td>{{ row.variant }}</td>
+        <td>{{ "%.4f"|format(row.mean_inference_latency_ms|float) }}</td>
+        <td>{{ "%.4f"|format(row.p95_inference_latency_ms|float) }}</td>
+        <td>{{ "%.2f"|format(row.model_size_kb|float) }}</td>
+        <td>{{ "%.2f"|format(row.classification_accuracy_percent|float) }}</td>
+        <td>{{ "%.4f"|format(row.estimated_energy_per_inference_mj|float) }}</td>
+        <td>{{ "%.2f"|format(row.critical_recall_percent|float) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid" style="margin-top: 18px;">
+  <div class="panel">
+    <h2>Normalization Experiment</h2>
+    {% if normalization_result %}
+    <div>Correct stats accuracy: {{ "%.4f"|format(normalization_result.correct_stats_accuracy|float) }}</div>
+    <div>Shifted stats accuracy: {{ "%.4f"|format(normalization_result.shifted_stats_accuracy|float) }}</div>
+    {% else %}
+    <div>Normalization report not found.</div>
+    {% endif %}
+  </div>
+  <div class="panel">
+    <h2>Reference Distribution</h2>
+    {% if reference_summary %}
+    <div>Sample count: {{ reference_summary.sample_count }}</div>
+    <div>Generated at: {{ reference_summary.generated_at }}</div>
+    <div>Distribution: {{ reference_summary.distribution }}</div>
+    {% else %}
+    <div>Reference distribution not found.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 18px;">
+  <h2>Pareto Chart</h2>
+  <img src="{{ url_for('report_asset', filename='pareto_chart.png') }}" alt="Pareto chart">
+</div>
+
+<div class="panel" style="margin-top: 18px;">
+  <h2>Available Report Files</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for filename in report_files %}
+      <tr>
+        <td>{{ filename }}</td>
+        <td><a href="{{ url_for('report_asset', filename=filename) }}" target="_blank">open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

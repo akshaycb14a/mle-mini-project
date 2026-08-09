@@ -3,7 +3,10 @@
 Command order for the demo.
 
 ```bash
+./scripts/run_demo_slideshow.sh
+./scripts/run_training_demo.sh
 ./scripts/start_live_stack.sh
+./scripts/run_web_app.sh
 ./scripts/run_sensor_cycle.sh
 ./scripts/run_model_tasks.sh
 ./scripts/run_psi_demo.sh

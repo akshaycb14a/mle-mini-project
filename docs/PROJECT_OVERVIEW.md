@@ -17,6 +17,9 @@
 
 ## Scripts
 
+- `scripts/run_demo_slideshow.sh` - serve the simple HTML slideshow for the video
+- `scripts/run_training_demo.sh` - generate stats, train, and evaluate the model
+- `scripts/run_web_app.sh` - start the web demo
 - `scripts/start_live_stack.sh` - start Mosquitto, inference, PSI monitor
 - `scripts/stop_live_stack.sh` - stop the live stack
 - `scripts/run_sensor.sh` - run one simulator mode

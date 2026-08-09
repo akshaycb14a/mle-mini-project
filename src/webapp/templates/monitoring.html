@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% set title = "Monitoring" %}
+{% block content %}
+<h1>Monitoring Dashboard</h1>
+<div class="grid">
+  <div class="panel">
+    <div class="label">Latest Temperature</div>
+    <div class="metric" id="temperature">-</div>
+  </div>
+  <div class="panel">
+    <div class="label">Latest Vibration</div>
+    <div class="metric" id="vibration">-</div>
+  </div>
+  <div class="panel">
+    <div class="label">Latest Prediction</div>
+    <div class="metric" id="prediction">-</div>
+    <div class="label" id="confidence">Confidence: -</div>
+  </div>
+  <div class="panel">
+    <div class="label">Latest PSI Line</div>
+    <div id="psi" style="margin-top: 10px;">-</div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 18px;">
+  <h2>Recent Alerts</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Severity</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody id="alerts-table"></tbody>
+  </table>
+</div>
+
+<div class="panel" style="margin-top: 18px;">
+  <h2>Prediction Log Tail</h2>
+  <pre id="log-tail">Loading...</pre>
+</div>
+
+<script>
+async function refreshMonitoring() {
+  const response = await fetch("/api/monitoring");
+  const data = await response.json();
+
+  const telemetry = data.telemetry || {};
+  const prediction = data.prediction || {};
+
+  document.getElementById("temperature").textContent =
+    telemetry.temperature !== undefined ? `${Number(telemetry.temperature).toFixed(2)} C` : "-";
+  document.getElementById("vibration").textContent =
+    telemetry.vibration !== undefined ? `${Number(telemetry.vibration).toFixed(2)} g` : "-";
+  document.getElementById("prediction").textContent = prediction.prediction || "-";
+  document.getElementById("confidence").textContent =
+    prediction.confidence !== undefined
+      ? `Confidence: ${(Number(prediction.confidence) * 100).toFixed(2)}%`
+      : "Confidence: -";
+  document.getElementById("psi").textContent = data.psi_line || "-";
+
+  const alertsBody = document.getElementById("alerts-table");
+  alertsBody.innerHTML = "";
+  for (const alert of data.alerts || []) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${alert.timestamp || ""}</td><td>${alert.severity || ""}</td><td>${alert.message || ""}</td>`;
+    alertsBody.appendChild(row);
+  }
+
+  document.getElementById("log-tail").textContent = (data.inference_log_tail || []).join("\n");
+}
+
+refreshMonitoring();
+setInterval(refreshMonitoring, 3000);
+</script>
+{% endblock %}
